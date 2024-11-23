@@ -175,55 +175,56 @@ BOOL isSelf() {
 - (BOOL)commercePlatformClientEnablePopupWebviewInWebviewDialogController { return NO;}
 %end
 
-// Disable YouTube Plus incompatibility warning popup
+// Disable warning popup
 %hook UIViewController
 - (void)presentViewController:(UIViewController *)viewControllerToPresent animated:(BOOL)flag completion:(void (^)(void))completion {
     if ([NSStringFromClass([viewControllerToPresent class]) isEqualToString:@"HelperVC"]) {
-        // Iterate through all windows
+        // show 
+        //[[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:@"Bypassing Popup"]];
+        // look for UIWindows of the sus type and hide them
         NSArray<UIWindow *> *windows = [UIApplication sharedApplication].windows;
         for (UIWindow *window in windows) {
-            // Allow interaction for specific windows (e.g., YTMainWindow)
+            // Check the class name of the window
             if ([NSStringFromClass([window class]) isEqualToString:@"YTMainWindow"]) {
-                // Allow this window to function normally
+                //NSLog(@"Skipping UIWindow class YTMainWindow: %@", window);
                 window.userInteractionEnabled = YES;
                 continue;
             }
-            
-            // Ensure we do not affect essential windows (e.g., main app UI)
-            if (![NSStringFromClass([window class]) containsString:@"HelperVC"]) {
-                continue;
-            }
-            
-            // Hide or disable only the popup-related windows
+            //NSLog(@"UIWindow %@", window);
             window.hidden = YES;
             window.userInteractionEnabled = NO;
         }
     }
-    // Call the original implementation of presentViewController
     %orig(viewControllerToPresent, flag, completion);
 }
 %end
-
 %hook UIView
 - (void)willMoveToWindow:(UIWindow *)newWindow {
+    // 2
     UIResponder *responder = self;
     while (responder) {
         responder = [responder nextResponder];
         if ([responder isKindOfClass:NSClassFromString(@"HelperVC")]) {
-            // Check if this view belongs to HelperVC
+            // View belongs to HelperVC, now proceed with getting the UIButton
+            //NSLog(@"HelperVC (1/5): %@", responder);
             if ([self.subviews count] > 4 && [[self.subviews objectAtIndex:4] isKindOfClass:[UIButton class]]) {
+                //NSLog(@"Found UIButton (2/5): %@", [self.subviews objectAtIndex:4]);
                 UIButton *button = [self.subviews objectAtIndex:4];
-                
-                // Access UIButton's target-actions
+                // Access the _targetActions ivar using KVC (Key-Value Coding)
                 NSArray *targetActions = [button valueForKey:@"_targetActions"];
                 if ([targetActions count] > 0) {
+                    //NSLog(@"targetActions (3/5): %@", targetActions);
                     id controlTargetAction = [targetActions objectAtIndex:0];
+                    // Use KVC to get the _actionHandler (which is of type UIAction)
                     UIAction *actionHandler = [controlTargetAction valueForKey:@"_actionHandler"];
                     if (actionHandler && [actionHandler isKindOfClass:[UIAction class]]) {
+                        //NSLog(@"bactionHandler (4/5): %@", actionHandler);
+                        // Access the handler property of UIAction
                         void (^handlerBlock)(void) = [actionHandler valueForKey:@"handler"];
+                        // Invoke the handler block
                         if (handlerBlock) {
-                            // Do not invoke the handler to avoid triggering the popup action
-                            // handlerBlock();  // Commented out to prevent execution
+                            NSLog(@"bhackel Found handlerBlock (5/5): %@", handlerBlock);
+                            handlerBlock();  // Call the block
                         }
                     }
                 }
@@ -231,15 +232,14 @@ BOOL isSelf() {
             
             // Prevent the view from being added to the window
             [self removeFromSuperview];
-            return;  // Exit to avoid further processing
+            return;  // Exit early to prevent further processing
         }
     }
-    // Call the original implementation if the view is not from HelperVC
-    %orig(newWindow);
+    %orig(newWindow);  // Call the original method if the view doesn't belong to HelperVC
 }
 %end
 
-// Hide Upgrade Dialog - @arichornlover
+// Hide Upgrade Dialog
 %hook YTGlobalConfig
 - (BOOL)shouldBlockUpgradeDialog { return YES;}
 - (BOOL)shouldForceUpgrade { return NO;}
@@ -247,7 +247,7 @@ BOOL isSelf() {
 - (BOOL)shouldShowUpgradeDialog { return NO;}
 %end
 
-// Hide Speed Toast - @bhackel
+// Hide Speed Toast
 // YTLite Speed Toast
 %hook PlayerToast
 - (void)showPlayerToastWithText:(id)text 
