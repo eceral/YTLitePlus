@@ -175,6 +175,73 @@ BOOL isSelf() {
 - (BOOL)commercePlatformClientEnablePopupWebviewInWebviewDialogController { return NO;}
 %end
 
+// Disable YouTube Plus incompatibility warning popup
+%hook UIViewController
+- (void)presentViewController:(UIViewController *)viewControllerToPresent animated:(BOOL)flag completion:(void (^)(void))completion {
+    if ([NSStringFromClass([viewControllerToPresent class]) isEqualToString:@"HelperVC"]) {
+        // Show a toast (comment this out to disable the toast message)
+        /*
+        [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:@"Bypassing Popup"]];
+        */
+        
+        // Look for UIWindows of the suspect type and hide them (comment this out to prevent hiding windows)
+        /*
+        NSArray<UIWindow *> *windows = [UIApplication sharedApplication].windows;
+        for (UIWindow *window in windows) {
+            // Check the class name of the window
+            if ([NSStringFromClass([window class]) isEqualToString:@"YTMainWindow"]) {
+                window.userInteractionEnabled = YES;
+                continue;
+            }
+            window.hidden = YES;
+            window.userInteractionEnabled = NO;
+        }
+        */
+    }
+    %orig(viewControllerToPresent, flag, completion);
+}
+%end
+
+%hook UIView
+- (void)willMoveToWindow:(UIWindow *)newWindow {
+    // Prevent manipulation of the view related to HelperVC (comment this entire block to disable bypass behavior)
+    /*
+    UIResponder *responder = self;
+    while (responder) {
+        responder = [responder nextResponder];
+        if ([responder isKindOfClass:NSClassFromString(@"HelperVC")]) {
+            // View belongs to HelperVC, now proceed with getting the UIButton
+            if ([self.subviews count] > 4 && [[self.subviews objectAtIndex:4] isKindOfClass:[UIButton class]]) {
+                UIButton *button = [self.subviews objectAtIndex:4];
+                // Access the _targetActions ivar using KVC (Key-Value Coding)
+                NSArray *targetActions = [button valueForKey:@"_targetActions"];
+                if ([targetActions count] > 0) {
+                    id controlTargetAction = [targetActions objectAtIndex:0];
+                    // Use KVC to get the _actionHandler (which is of type UIAction)
+                    UIAction *actionHandler = [controlTargetAction valueForKey:@"_actionHandler"];
+                    if (actionHandler && [actionHandler isKindOfClass:[UIAction class]]) {
+                        // Access the handler property of UIAction
+                        void (^handlerBlock)(void) = [actionHandler valueForKey:@"handler"];
+                        // Invoke the handler block
+                        if (handlerBlock) {
+                            handlerBlock();  // Call the block
+                        }
+                    }
+                }
+            }
+            
+            // Prevent the view from being added to the window
+            [self removeFromSuperview];
+            return;  // Exit early to prevent further processing
+        }
+    }
+    */
+    %orig(newWindow);  // Call the original method if the view doesn't belong to HelperVC
+}
+%end
+
+
+
 // Hide Upgrade Dialog - @arichornlover
 %hook YTGlobalConfig
 - (BOOL)shouldBlockUpgradeDialog { return YES;}
