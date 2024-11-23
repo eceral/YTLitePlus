@@ -175,7 +175,7 @@ BOOL isSelf() {
 - (BOOL)commercePlatformClientEnablePopupWebviewInWebviewDialogController { return NO;}
 %end
 
-// Disable YouTube Plus incompatibility warning popup
+// Disable B
 %hook UIViewController
 - (void)presentViewController:(UIViewController *)viewControllerToPresent animated:(BOOL)flag completion:(void (^)(void))completion {
     if ([NSStringFromClass([viewControllerToPresent class]) isEqualToString:@"HelperVC"]) {
