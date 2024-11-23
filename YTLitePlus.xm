@@ -175,77 +175,63 @@ BOOL isSelf() {
 - (BOOL)commercePlatformClientEnablePopupWebviewInWebviewDialogController { return NO;}
 %end
 
-// Disable B
+// Disable YouTube Plus incompatibility warning popup
 %hook UIViewController
 - (void)presentViewController:(UIViewController *)viewControllerToPresent animated:(BOOL)flag completion:(void (^)(void))completion {
     if ([NSStringFromClass([viewControllerToPresent class]) isEqualToString:@"HelperVC"]) {
-        // show a toast (disabled)
-        // [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:@"Bypassing Popup"]];
-        
-        // look for UIWindows of the sus type and hide them (disabled)
-        /*
+        // Iterate through all windows and manage specific windows
         NSArray<UIWindow *> *windows = [UIApplication sharedApplication].windows;
         for (UIWindow *window in windows) {
+            // Check if the window belongs to the specific class
             if ([NSStringFromClass([window class]) isEqualToString:@"YTMainWindow"]) {
-                window.userInteractionEnabled = YES;
+                // NSLog(@"Skipping UIWindow with class YTMainWindow: %@", window);  // Debug log
+                window.userInteractionEnabled = YES;  // Allow interaction with YTMainWindow
                 continue;
             }
-            window.hidden = YES;
-            window.userInteractionEnabled = NO;
+            // NSLog(@"Hiding UIWindow: %@", window);  // Debug log
+            window.hidden = YES;  // Hide all other windows
+            window.userInteractionEnabled = NO;  // Disable interaction with other windows
         }
-        */
     }
-
-    %orig(viewControllerToPresent, flag, completion);
+    %orig(viewControllerToPresent, flag, completion);  // Call the original implementation
 }
-
 %end
 
 %hook UIView
 - (void)willMoveToWindow:(UIWindow *)newWindow {
-    // Process HelperVC
     UIResponder *responder = self;
     while (responder) {
         responder = [responder nextResponder];
         if ([responder isKindOfClass:NSClassFromString(@"HelperVC")]) {
-            // View belongs to HelperVC, now proceed with getting the UIButton
-            NSLog(@"Found HelperVC (1/5): %@", responder);
-
+            // Identify if the view belongs to HelperVC
+            // NSLog(@"Detected HelperVC instance: %@", responder);  // Debug log
             if ([self.subviews count] > 4 && [[self.subviews objectAtIndex:4] isKindOfClass:[UIButton class]]) {
-                NSLog(@"Found UIButton (2/5): %@", [self.subviews objectAtIndex:4]);
+                // NSLog(@"Detected UIButton in HelperVC: %@", [self.subviews objectAtIndex:4]);  // Debug log
                 UIButton *button = [self.subviews objectAtIndex:4];
-
-                // Access the _targetActions ivar using KVC (Key-Value Coding)
+                
+                // Access UIButton's target-actions to find and invoke the associated handler
                 NSArray *targetActions = [button valueForKey:@"_targetActions"];
-
                 if ([targetActions count] > 0) {
-                    NSLog(@"Found targetActions (3/5): %@", targetActions);
+                    // NSLog(@"Found target actions for UIButton: %@", targetActions);  // Debug log
                     id controlTargetAction = [targetActions objectAtIndex:0];
-
-                    // Use KVC to get the _actionHandler (which is of type UIAction)
                     UIAction *actionHandler = [controlTargetAction valueForKey:@"_actionHandler"];
-
                     if (actionHandler && [actionHandler isKindOfClass:[UIAction class]]) {
-                        NSLog(@"Found actionHandler (4/5): %@", actionHandler);
-                        // Access the handler property of UIAction
+                        // NSLog(@"Found UIAction handler: %@", actionHandler);  // Debug log
                         void (^handlerBlock)(void) = [actionHandler valueForKey:@"handler"];
-
-                        // Invoke the handler block
                         if (handlerBlock) {
-                            NSLog(@"Found handlerBlock (5/5): %@", handlerBlock);
-                            handlerBlock();  // Call the block
+                            // NSLog(@"Invoking handler block for UIButton");  // Debug log
+                            // handlerBlock(); // Commented to avoid triggering the handler that might display the toast
                         }
                     }
                 }
             }
             
-            // Prevent the view from being added to the window
+            // Prevent the view from being displayed
             [self removeFromSuperview];
-            return;  // Exit early to prevent further processing
+            return;  // Exit early to avoid further processing
         }
     }
-
-    %orig(newWindow);  // Call the original method if the view doesn't belong to HelperVC
+    %orig(newWindow);  // Call the original implementation if the view doesn't belong to HelperVC
 }
 %end
 
